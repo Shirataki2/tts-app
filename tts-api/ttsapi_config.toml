@@ -1,0 +1,10 @@
+[openjtalk]
+dictionary = "/usr/local/dic/"
+hts_path = "resources/voice/mei_normal.htsvoice"
+all_pass = 0.53
+postfilter_coef = 0.7
+speed_rate = 0.9
+additional_half_tone = -1.0
+unvoiced_threshold = 0.6
+spectrum_weight = 1.0
+spectrum_f0 = 1.0

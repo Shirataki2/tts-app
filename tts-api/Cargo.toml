@@ -1,0 +1,35 @@
+[package]
+name = "tts-api"
+version = "0.1.0"
+authors = ["Tomoya Ishii <shi2gx@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+actix-web = "3"
+actix-service = "1.0"
+actix-session = "0.4"
+anyhow = "1.0"
+derive_builder = "0.9"
+dirs = "3.0"
+dotenv = "0.15"
+env_logger = "0.8"
+futures = "0.3"
+http = "0.1"
+listenfd = "0.3.3"
+log = "0.4"
+oauth2 = "3"
+opus = "0.2"
+pwhash = "1.0"
+rand = "0.8"
+serde = "1.0"
+serde_derive = "1.0"
+serde_json = "1.0"
+serde_repr = "0.1"
+sqlx = { version = "0.3", features = ["postgres"] }
+tempfile = "3.2"
+thiserror = "1.0"
+toml = "0.5"
+url = "2.2"
+wav = "0.5"

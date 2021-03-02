@@ -1,0 +1,16 @@
+[tasks.install-systemfd]
+install_crate = { crate_name = "systemfd", binary = "systemfd", test_arg = "--help" }
+
+[tasks.install-cargo-watch]
+install_crate = { crate_name = "cargo-watch", binary = "cargo", test_arg = ["watch", "--help"] }
+
+[tasks.serve]
+description = "Start development server"
+dependencies = ["install-systemfd", "install-cargo-watch"]
+command = "systemfd"
+args = ["--no-pid", "-s", "http::7888", "--", "cargo", "watch", "-x", "run"]
+
+[tasks.start]
+description = "Start server"
+command = "cargo"
+args = ["run", "--release"]
