@@ -1,4 +1,4 @@
-use crate::{auth::token::Token, error::AppError, AppState};
+use crate::{AppState, auth::token::Token, error::AppError, models::users::User};
 use actix_web::{get, http::header, web, HttpResponse};
 use http::{HeaderMap, HeaderValue, Method};
 use oauth2::{
@@ -16,6 +16,18 @@ struct AuthRequestQuery {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GitHubUserData {
     pub id: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct LoginResponse {
+    message: String,
+    user_id: i64,
+    token: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RevokeResponse {
+    token: String,
 }
 
 #[get("/login")]
@@ -70,15 +82,66 @@ async fn auth(
 
     eprintln!("{:?}", user);
 
+    let token = match Token::get(&pool, user.id).await? {
+        Some(token) => token,
+        None => {
+            let token = Token::generate(24);
+            token.register(pool, user.id).await?;
+            token.show()
+        }
+    };
+    
+
+    let body = "Successfully Authorized!".into();
+
+    Ok(HttpResponse::Ok().json(LoginResponse {
+        message: body,
+        user_id: user.id,
+        token
+    }))
+}
+
+#[derive(Deserialize, Debug)]
+struct RevokeQuery {
+    id: i64,
+    token: String,
+}
+
+#[get("/revoke")]
+async fn revoke(pool: web::Data<PgPool>, query: web::Query<RevokeQuery>) -> Result<HttpResponse, HttpResponse> {
+    let query = query.into_inner();
+    let pool = pool.get_ref();
+    
+    let token = Token::new(&query.token);
+    let id = query.id;
+
+    match token.verify(pool, id).await {
+        Ok(true) => {}
+        Ok(false) => return Err(HttpResponse::Unauthorized().body("Invalid token.")),
+        Err(AppError::DatabaseError(sqlx::Error::RowNotFound)) => {
+            return Err(HttpResponse::NotFound().body("User not found"))
+        },
+        Err(e) => {
+            error!("{:?}", e);
+            return Err(HttpResponse::InternalServerError().body("Unexpected Error"));
+        }
+    }
+
+    let user = match User::get_or_create(pool, id).await {
+        Ok(user) => user,
+        Err(_) => return Err(HttpResponse::InternalServerError().body("Unexpected Error")),
+    };
+
     let token = Token::generate(24);
-    token.register(pool, user.id).await?;
+    if token.register(pool, user.id).await.is_err() {
+        return Err(HttpResponse::InternalServerError().body("Unexpected Error"));
+    }
 
-    let body = format!("Successfully Authorized!\n\nYour user id: {}\n\nYour user token is {}", user.id, token);
-
-    Ok(HttpResponse::Ok().body(&body))
+    Ok(HttpResponse::Ok().json(RevokeResponse { token: token.show() }))
 }
 
 pub fn init(cfg: &mut web::ServiceConfig) {
     cfg.service(login);
     cfg.service(auth);
+    cfg.service(revoke);
 }

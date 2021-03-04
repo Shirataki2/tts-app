@@ -1,6 +1,5 @@
 use std::fmt::{self, Formatter};
 
-use pwhash::bcrypt;
 use rand::Rng;
 use sqlx::{query, PgPool};
 
@@ -16,6 +15,10 @@ impl Token {
         Token(s.to_string())
     }
 
+    pub fn show(&self) -> String {
+        self.0.clone()
+    }
+
     pub fn generate(length: usize) -> Token {
         let mut rng = rand::thread_rng();
         let pw: String = (0..length)
@@ -27,8 +30,24 @@ impl Token {
         Token(pw)
     }
 
+    pub async fn get(pool: &PgPool, user_id: i64) -> Result<Option<String>, AppError> {
+        let result = query!(
+            r#"
+                SELECT token from user_secret
+                WHERE users_id = $1
+            "#,
+            user_id
+        )
+        .fetch_one(pool)
+        .await;
+        match result {
+            Ok(r) => Ok(Some(r.token)),
+            Err(sqlx::Error::RowNotFound) => Ok(None),
+            Err(e) => Err(e.into())
+        }
+    }
+
     pub async fn register(&self, pool: &PgPool, user_id: i64) -> Result<(), AppError> {
-        let digested = bcrypt::hash(&self.0)?;
         query!(
             r#"
                 INSERT INTO user_secret values ($1, $2)
@@ -36,7 +55,7 @@ impl Token {
                 DO UPDATE SET users_id = $1, token = $2
             "#,
             user_id,
-            digested
+            self.0
         )
         .execute(pool)
         .await?;
@@ -54,7 +73,7 @@ impl Token {
         .fetch_one(pool)
         .await?
         .token;
-        Ok(bcrypt::verify(&self.0, &digested))
+        Ok(&self.0 == &digested)
     }
 }
 
